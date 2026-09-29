@@ -1,0 +1,1 @@
+{"test_start": "2025-10-03", "test_end": "2025-12-31", "forecast_start": "2026-01-01", "forecast_end": "2026-01-30", "wape_lightgbm": 22.566, "wape_naive": 32.625}

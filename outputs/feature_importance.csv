@@ -1,0 +1,14 @@
+feature,importance
+roll_mean_28,66.5
+roll_mean_7,17.14
+sku_code,5.23
+promo,4.43
+dow,1.86
+doy,1.45
+roll_std_28,0.74
+month,0.64
+lag_7,0.5
+lag_28,0.48
+lag_14,0.47
+is_weekend,0.42
+price,0.15

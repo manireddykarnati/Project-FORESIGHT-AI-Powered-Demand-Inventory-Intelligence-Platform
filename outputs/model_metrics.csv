@@ -1,0 +1,4 @@
+model,MAE,RMSE,WAPE_pct,Bias_pct
+Naive (last week),3.916,5.118,32.625,1.402
+Moving average (28d),3.002,4.001,25.011,-0.356
+LightGBM,2.708,3.521,22.566,2.068
