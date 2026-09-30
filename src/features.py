@@ -9,8 +9,8 @@ FEATURES = [
 
 
 def load_sales(path):
-    df = pd.read_csv(path, parse_dates=["Date"])
-    df = df.sort_values(["SKU", "Date"]).reset_index(drop=True)
+    from .data import clean_table
+    df = clean_table(path, "sales_daily", {})
     df["sku_code"] = df["SKU"].astype("category").cat.codes
     return df
 

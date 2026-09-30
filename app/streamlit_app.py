@@ -1,5 +1,5 @@
 """FORESIGHT dashboard. Loads precomputed CSVs from outputs/ (no training at runtime)."""
-import json, sys
+import sys, os
 from pathlib import Path
 import pandas as pd
 import plotly.express as px
@@ -9,69 +9,61 @@ import streamlit as st
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from src.inventory import compute_recommendations, Z, OVERSTOCK_COVER
+from src.inventory import compute_recommendations, Z
+from src.scoring import load_outputs, score
+OUTPUT = Path(os.environ.get("FORESIGHT_OUTPUT_DIR", str(ROOT / "outputs")))
 
-st.set_page_config(page_title="FORESIGHT | Demand & Inventory Intelligence", page_icon="📦", layout="wide")
+st.set_page_config(page_title="FORESIGHT | Planning review", layout="wide")
 
-BG = "#0E1117"; PANEL = "#161B22"; PANEL2 = "#1C2430"; BORDER = "#2A3441"
-TEXT = "#E6EDF3"; MUTED = "#8B96A5"
-GREEN, RED, AMBER, BLUE = "#3BA776", "#E5484D", "#E8A33D", "#4C8DF6"
+BG = "#FFFFFF"; PANEL = "#FFFFFF"; PANEL2 = "#F5F7FA"; BORDER = "#E2E8EF"
+TEXT = "#202D3A"; MUTED = "#637487"
+GREEN, RED, AMBER, BLUE = "#347A66", "#B45353", "#A66E25", "#245B85"
 
-pio.templates["foresight_dark"] = pio.templates["plotly_dark"]
-pio.templates["foresight_dark"].layout.update(
+pio.templates["foresight_light"] = pio.templates["plotly_white"]
+pio.templates["foresight_light"].layout.update(
     paper_bgcolor=PANEL, plot_bgcolor=PANEL,
-    font=dict(color=TEXT, family="Inter, sans-serif", size=13),
-    colorway=[GREEN, BLUE, AMBER, RED, "#B084F0"],
+    font=dict(color=TEXT, family="Arial, sans-serif", size=13),
+    colorway=[BLUE, GREEN, AMBER, RED, "#76638E"],
     xaxis=dict(gridcolor=BORDER, zerolinecolor=BORDER), yaxis=dict(gridcolor=BORDER, zerolinecolor=BORDER),
-    legend=dict(bgcolor="rgba(0,0,0,0)"), margin=dict(t=50, b=20, l=10, r=10),
+    legend=dict(bgcolor="rgba(0,0,0,0)", orientation="h", y=-.2),
+    margin=dict(t=60, b=65, l=10, r=10),
     hoverlabel=dict(bgcolor=PANEL2, bordercolor=BORDER, font=dict(color=TEXT, size=12)),
 )
-pio.templates.default = "foresight_dark"
+pio.templates.default = "foresight_light"
 
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; }}
-.stApp {{ background: radial-gradient(circle at 15% 0%, #131A24 0%, {BG} 45%); }}
-#MainMenu, header, footer {{ visibility: hidden; }}
-.block-container {{ padding-top: 1.6rem; padding-bottom: 3rem; max-width: 1400px; }}
-.kpi-card, .stButton>button, .stDownloadButton>button {{ transition: background-color .18s ease, border-color .18s ease, transform .12s ease, box-shadow .18s ease; }}
-section[data-testid="stSidebar"] {{ background: linear-gradient(180deg, #10151D 0%, #0B0F14 100%); border-right: 1px solid {BORDER}; }}
-.kpi-card {{ background: linear-gradient(160deg, {PANEL2}, {PANEL}); border:1px solid {BORDER}; border-radius:16px;
-    padding:18px 20px; position:relative; overflow:hidden; }}
-.kpi-card:hover {{ border-color:#3A4757; transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,.35); }}
-.kpi-card::before {{ content:""; position:absolute; top:0; left:0; width:4px; height:100%; background:var(--accent, {GREEN}); }}
-.kpi-label {{ color:{MUTED}; font-size:.76rem; font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }}
-.kpi-value {{ font-size:1.65rem; font-weight:800; color:{TEXT}; line-height:1.1; }}
-.kpi-delta {{ font-size:.78rem; margin-top:6px; font-weight:600; }}
-.card {{ background:{PANEL}; border:1px solid {BORDER}; border-radius:16px; padding:20px 22px; margin-bottom:1rem; }}
-.card h4 {{ margin-top:0; font-size:1rem; font-weight:700; color:{TEXT}; }}
-.stTabs [data-baseweb="tab-list"] {{ gap:4px; background:{PANEL}; padding:5px; border-radius:12px; border:1px solid {BORDER}; }}
-.stTabs [data-baseweb="tab"] {{ border-radius:9px; padding:8px 16px; color:{MUTED}; font-weight:600; font-size:.9rem; }}
-.stTabs [aria-selected="true"] {{ background:{GREEN} !important; color:#04140C !important; }}
-[data-testid="stDataFrame"] {{ border:1px solid {BORDER}; border-radius:12px; overflow:hidden; }}
-.stButton>button, .stDownloadButton>button {{ background:linear-gradient(135deg,{GREEN},#1f6e4a); color:white;
-    border:none; border-radius:10px; font-weight:600; padding:.5rem 1.1rem; }}
-.stButton>button:hover, .stDownloadButton>button:hover {{ box-shadow:0 6px 18px rgba(59,167,118,.4); transform:translateY(-1px); }}
-.rec-banner {{ background:linear-gradient(135deg, rgba(59,167,118,.14), rgba(59,167,118,.03));
-    border:1px solid rgba(59,167,118,.35); border-radius:14px; padding:16px 20px; }}
-.mini-metric {{ text-align:center; }}
-.mini-metric .v {{ font-size:1.3rem; font-weight:800; }}
-.mini-metric .l {{ color:{MUTED}; font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; }}
+.stApp {{ background:{BG}; color:{TEXT}; }}
+.block-container {{ padding-top:2.8rem; padding-bottom:3rem; max-width:1440px; }}
+section[data-testid="stSidebar"] {{ background:{PANEL2}; border-right:1px solid {BORDER}; }}
+section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {{ padding-top:1.7rem; }}
+.brand {{ font-size:1.2rem; font-weight:700; letter-spacing:.13em; color:{BLUE}; margin-bottom:.25rem; }}
+.eyebrow {{ font-size:.72rem; font-weight:600; letter-spacing:.12em; color:{MUTED}; text-transform:uppercase; }}
+h1 {{ font-size:2rem !important; font-weight:600 !important; letter-spacing:-.035em; padding-bottom:.25rem !important; }}
+h2, h3 {{ font-weight:600 !important; letter-spacing:-.02em; }}
+section[data-testid="stSidebar"] h3 {{ font-size:1.05rem !important; }}
+[data-testid="stMetric"] {{ background:{PANEL}; border:1px solid {BORDER}; border-radius:8px; padding:17px 20px; }}
+[data-testid="stMetricLabel"] {{ color:{MUTED}; }}
+[data-testid="stMetricValue"] {{ font-size:1.7rem; font-weight:600; }}
+.stTabs [data-baseweb="tab-list"] {{ gap:24px; border-bottom:1px solid {BORDER}; margin-top:14px; }}
+.stTabs [data-baseweb="tab"] {{ padding:12px 0; color:{MUTED}; background:transparent; font-weight:500; }}
+.stTabs [aria-selected="true"] {{ color:{BLUE} !important; }}
+[data-testid="stDataFrame"] {{ border:1px solid {BORDER}; border-radius:8px; overflow:hidden; }}
+.stButton>button, .stDownloadButton>button {{ border-radius:6px; font-weight:500; }}
+div[data-testid="stExpander"] {{ border-color:{BORDER}; }}
+@media (max-width:768px) {{
+  .block-container {{ padding-top:2rem; }}
+  .stTabs [data-baseweb="tab-list"] {{ gap:16px; }}
+}}
 </style>
 """, unsafe_allow_html=True)
 
 
-def kpi(col, label, value, delta=None, accent=GREEN, delta_color=MUTED):
-    d = f'<div class="kpi-delta" style="color:{delta_color}">{delta}</div>' if delta else ""
-    col.markdown(f"""<div class="kpi-card" style="--accent:{accent}">
-        <div class="kpi-label">{label}</div><div class="kpi-value">{value}</div>{d}</div>""", unsafe_allow_html=True)
-
 def render_chart(fig, container=None):
-    """Keep our dark hover labels and avoid Streamlit theme overrides."""
+    """Use one light, readable chart style across all views."""
     fig.update_layout(hoverlabel=dict(
         bgcolor=PANEL2, bordercolor=BORDER,
-        font=dict(color=TEXT, family="Inter, sans-serif", size=13),
+        font=dict(color=TEXT, family="Arial, sans-serif", size=13),
         namelength=-1,
     ))
     target = st if container is None else container
@@ -79,155 +71,189 @@ def render_chart(fig, container=None):
 
 
 
-COLORS = {"Stockout risk": "#D64545", "Overstock": "#E8A33D", "Healthy": "#3BA776"}
+COLORS = {'Reorder now': RED, 'Markdown / clear': AMBER, 'Watch / volatile': '#76638E', 'Healthy': GREEN}
 
 
-@st.cache_data
-def load():
-    fc = pd.read_csv(ROOT / "outputs/forecasts.csv", parse_dates=["date"])
-    inputs = pd.read_csv(ROOT / "outputs/sku_inputs.csv")
-    metrics = pd.read_csv(ROOT / "outputs/model_metrics.csv")
-    imp = pd.read_csv(ROOT / "outputs/feature_importance.csv")
-    info = json.load(open(ROOT / "outputs/run_info.json"))
-    sales = pd.read_csv(ROOT / "data/sales_daily.csv", parse_dates=["Date"])
-    return fc, inputs, metrics, imp, info, sales
+def reset_filters():
+    for key in ['category_filter', 'product_filter', 'class_filter', 'risk_filter', 'service_level']:
+        st.session_state.pop(key, None)
 
 
-fc, inputs, metrics, imp, info, sales = load()
+def date_label(value):
+    return pd.Timestamp(value).strftime('%d %b %Y') if value else 'Unavailable'
 
-# ---------------- sidebar ----------------
-st.sidebar.title("📦 FORESIGHT")
-st.sidebar.caption("AI-powered demand & inventory intelligence")
-sl = st.sidebar.select_slider("Target service level", options=list(Z.keys()), value=0.95,
-                              format_func=lambda x: f"{int(x*100)}%",
-                              help="Higher service level = more safety stock = fewer stockouts, more cash tied up.")
-abc = st.sidebar.multiselect("ABC class (by revenue)", ["A", "B", "C"], default=["A", "B", "C"])
-flags = st.sidebar.multiselect("Risk flag", list(COLORS), default=list(COLORS))
-sku_sel = st.sidebar.selectbox("SKU for detail view", sorted(inputs["sku"]))
+st.markdown('<div class="eyebrow">FORESIGHT / Planning review</div>', unsafe_allow_html=True)
+st.title('Demand & inventory')
+try:
+    with st.spinner('Loading validated forecasts and source availability…'):
+        fc, inputs, metrics, info = load_outputs(OUTPUT)
+except ValueError as exc:
+    st.error(str(exc))
+    st.stop()
+
+st.caption(f"Sales through {date_label(info['as_of'])} · Forecast {date_label(info['forecast_start'])} – {date_label(info['forecast_end'])}")
+st.sidebar.markdown('<div class="brand">FORESIGHT</div>', unsafe_allow_html=True)
+st.sidebar.caption('Demand & inventory planning')
 st.sidebar.divider()
-st.sidebar.caption("Stock, lead time and unit cost are **simulated** (the dataset has no inventory data). "
-                   "Forecast assumes no promotions in the next 30 days.")
-
-@st.cache_data(show_spinner=False)
-def recompute(inputs, sl):
-    return compute_recommendations(inputs, sl)
-
-with st.spinner("Recomputing inventory recommendations…"):
-    rec = recompute(inputs, sl)
-    view = rec[rec["abc_class"].isin(abc) & rec["flag"].isin(flags)]
-
-# ---------------- header + KPIs ----------------
-st.title("Project FORESIGHT")
-st.caption(f"Forecast window: {info['forecast_start']} → {info['forecast_end']}  |  "
-           f"Backtest: {info['test_start']} → {info['test_end']}")
-
-k1, k2, k3, k4, k5 = st.columns(5)
-kpi(k1, "Forecast demand (30d)", f"{rec['forecast_30d_units'].sum():,.0f}", "units, next 30 days", BLUE)
-n_stock, n_crit = int((rec.flag == "Stockout risk").sum()), int((rec.priority == "Critical").sum())
-kpi(k2, "Stockout risk", f"{n_stock} SKUs", f"{n_crit} critical", RED, RED if n_crit else MUTED)
-kpi(k3, "Overstocked", f"{int((rec.flag=='Overstock').sum())} SKUs", "> 60 days cover", AMBER)
-kpi(k4, "Excess inventory value", f"{rec['excess_inventory_value'].sum()/1e6:,.2f}M", "cash tied up", AMBER)
-acc = 100 - info['wape_lightgbm']
-kpi(k5, "Forecast accuracy", f"{acc:.1f}%", f"WAPE {info['wape_lightgbm']:.1f}% vs {info['wape_naive']:.1f}% naive", GREEN, GREEN)
-t1, t2, t3, t4, t5 = st.tabs(["📈 Forecast", "🏭 Inventory health", "✅ Recommendations", "🧪 Model performance", "🔍 Data insights"])
-
-# ---------------- Tab 1 ----------------
+st.sidebar.subheader('Filter view')
+categories = sorted(inputs.category.dropna().unique())
+category = st.sidebar.selectbox('Category', ['All categories']+categories, key='category_filter')
+category_inputs = inputs if category == 'All categories' else inputs[inputs.category == category]
+choices = ['All products']+sorted(category_inputs.sku)
+if st.session_state.get('product_filter') not in choices:
+    st.session_state['product_filter'] = 'All products'
+product = st.sidebar.selectbox('Product', choices, key='product_filter', help='Type a SKU to find a product.')
+risk = st.sidebar.selectbox('Action status', ['All statuses']+list(COLORS)+['Unavailable'], key='risk_filter')
+with st.sidebar.expander('Planning settings'):
+    abc = st.selectbox('Revenue class', ['All classes','A','B','C'], key='class_filter',
+                       help='A: largest revenue contributors. B: middle group. C: remaining products.')
+    sl = st.select_slider('Target service level', options=list(Z), value=.95, key='service_level',
+                          format_func=lambda x:f'{x:.0%}', help='Higher targets increase the safety-stock allowance.')
+st.sidebar.button('Reset filters', on_click=reset_filters, use_container_width=True, key='reset_filters')
+st.sidebar.divider()
+st.sidebar.caption(f"Stock snapshot · {date_label(info.get('inventory_as_of'))}")
+st.sidebar.caption('Historical review. Confirm fresh stock before placing orders.')
+valid_inputs = inputs[inputs.inventory_available == True]
+try:
+    with st.spinner('Updating inventory recommendations…'):
+        rec = compute_recommendations(valid_inputs, sl) if not valid_inputs.empty else pd.DataFrame(columns=['sku','flag'])
+except ValueError as exc:
+    st.error(f'Inventory inputs are invalid: {exc}')
+    st.stop()
+view = category_inputs.copy()
+if product != 'All products':
+    view = view[view.sku == product]
+if abc != 'All classes':
+    view = view[view.abc_class == abc]
+view['flag'] = view.sku.map(rec.set_index('sku').flag).fillna('Unavailable')
+if risk != 'All statuses':
+    view = view[view.flag == risk]
+if info['missing_extracts']:
+    st.warning('Incomplete source data: ' + ', '.join(info['missing_extracts']) + '. Inventory results are shown only where supported.')
+scope = f"Inventory review: {date_label(info.get('inventory_as_of'))} snapshot"
+if not info.get('currency'):
+    scope += ' · Financial values in unconfirmed source currency'
+st.caption(scope)
+with st.expander('Data scope & assumptions'):
+    st.write('Inventory decisions reflect the recorded snapshot. Confirm fresh stock and receipt dates before acting.')
+    if info.get('inventory_unmatched_skus'):
+        st.write(f"{info['inventory_unmatched_skus']} inventory-only SKUs lack matching sales and master records and are excluded from scoring.")
+    if not info.get('currency'):
+        st.write('The source currency is not confirmed. Financial values have not been converted or labelled as INR.')
+    st.write('Forecasts assume no planned promotions. Uncertainty bands are approximate and have not been empirically calibrated.')
+if view.empty:
+    st.info('No matching SKUs. Choose a broader category or action status, or reset the filters.')
+    st.stop()
+selected = view.sku.tolist()
+rv = rec[rec.sku.isin(selected)]
+unit = 'INR (₹)' if info.get('currency') == 'INR' else 'source currency units (unconfirmed)'
+k1,k2,k3,k4 = st.columns(4)
+k1.metric('Forecast units · 8 weeks', f'{view.forecast_56d_units.sum():,.0f}')
+k2.metric('Products in view', len(view))
+k3.metric('Reorder review', int((rv.flag == 'Reorder now').sum()))
+k4.metric('Clearance review', int((rv.flag == 'Markdown / clear').sum()))
+st.sidebar.caption(f'{len(view)} of {len(inputs)} supported products in view')
+t1,t2,t3,t4,t5 = st.tabs(['Forecast','Inventory','Actions','Performance','Insights'])
 with t1:
+    sku_sel = st.selectbox('Product forecast', selected)
     d = fc[fc.sku == sku_sel]
-    r = rec[rec.sku == sku_sel].iloc[0]
-    st.subheader(f"{sku_sel}: actual vs forecast")
     fig = go.Figure()
-    hist = d[d.type.isin(["history", "backtest"])]
-    fig.add_trace(go.Scatter(x=hist.date, y=hist.actual, name="Actual", line=dict(color=TEXT, width=2),
-                             hovertemplate="Actual: %{y:.1f}<extra></extra>"))
-    bt = d[d.type == "backtest"]
-    fig.add_trace(go.Scatter(x=bt.date, y=bt.forecast, name="Backtest forecast",
-                             line=dict(color=AMBER, dash="dot", width=2),
-                             hovertemplate="Backtest forecast: %{y:.1f}<extra></extra>"))
-    fu = d[d.type == "future"]
-    fig.add_trace(go.Scatter(x=pd.concat([fu.date, fu.date[::-1]]), y=pd.concat([fu.upper, fu.lower[::-1]]),
-                             fill="toself", fillcolor="rgba(59,167,118,0.15)", line=dict(width=0),
-                             name="95% interval", hoverinfo="skip"))
-    fig.add_trace(go.Scatter(x=fu.date, y=fu.forecast, name="30-day forecast", line=dict(color=GREEN, width=3),
-                             hovertemplate="30-day forecast: %{y:.1f}<extra></extra>"))
-    fig.update_layout(height=420, hovermode="x", legend=dict(orientation="h", y=1.1))
-
+    bt, fu = d[d.type == 'backtest'], d[d.type == 'future']
+    for frame, column, name, color in [(bt,'actual','Actual',TEXT),(bt,'forecast','Selected backtest forecast',GREEN),
+                                       (bt,'baseline','Seasonal naive',AMBER),(fu,'forecast','Next 8 weeks',BLUE)]:
+        fig.add_scatter(x=frame.date,y=frame[column],name=name,line=dict(color=color))
+    if 'model_forecast' in bt and info['selected_model'] != 'LightGBM':
+        fig.add_scatter(x=bt.date,y=bt.model_forecast,name='LightGBM backtest',line=dict(dash='dot'))
+    fig.add_scatter(x=pd.concat([fu.date,fu.date[::-1]]),y=pd.concat([fu.upper,fu.lower[::-1]]),
+                    fill='toself',fillcolor='rgba(76,141,246,.15)',line=dict(width=0),name='Approx. nominal 95% band')
+    fig.update_layout(title=f'{sku_sel}: daily demand',xaxis_title='Date',yaxis_title='Units',height=460)
     render_chart(fig)
-    c = st.columns(4)
-    c[0].metric("Avg forecast demand", f"{r.avg_daily_demand:.1f} / day")
-    c[1].metric("Current stock", f"{int(r.current_stock)} units")
-    c[2].metric("Days of cover", f"{r.days_of_cover:.1f} d", f"lead time {int(r.lead_time_days)} d", delta_color="off")
-    c[3].metric("Status", r.flag)
-    st.info(f"**Recommendation:** {r.action}. Reorder point is {int(r.reorder_point)} units "
-            f"(safety stock {int(r.safety_stock)}). Suggested order value: {r.order_value:,.0f}.")
-
-# ---------------- Tab 2 ----------------
+    st.caption(info['interval'] + '. Final-forecast bands only; normal, stable-error assumption. No calibrated coverage claim.')
+    if bool(view.set_index('sku').loc[sku_sel,'low_confidence']):
+        st.warning('Low-confidence forecast: sparse/new SKU fallback; validate category comparability.')
+    try:
+        wf = pd.read_csv(OUTPUT/'weekly_forecasts.csv')
+        st.subheader('Weekly forecast')
+        weekly_view = wf[wf.sku == sku_sel][['week_start','week_end','forecast','lower','upper']].rename(columns={
+            'week_start':'Week starting', 'week_end':'Week ending', 'forecast':'Forecast units',
+            'lower':'Lower estimate', 'upper':'Upper estimate'})
+        st.dataframe(weekly_view, hide_index=True, use_container_width=True,
+                     column_config={c:st.column_config.NumberColumn(format='%.0f')
+                                    for c in ['Forecast units','Lower estimate','Upper estimate']})
+    except (OSError, ValueError, KeyError) as exc:
+        st.error(f'Weekly output unavailable: {exc}')
+    st.subheader('Product lookup')
+    entered = st.text_input('SKU IDs, separated by commas', value=sku_sel, key='score_request')
+    if st.button('Get forecast & risk', key='score_button', type='primary'):
+        try:
+            result = score([s.strip() for s in entered.split(',')], OUTPUT, sl)
+            st.dataframe(result['forecast'], hide_index=True)
+            if result['unavailable_risk_skus']:
+                st.warning('Risk unavailable for: ' + ', '.join(result['unavailable_risk_skus']))
+            if not result['risk'].empty:
+                st.dataframe(result['risk'], hide_index=True)
+        except ValueError as exc:
+            st.error(str(exc))
 with t2:
-    a, b = st.columns([1, 2])
-    cnt = view["flag"].value_counts().reset_index()
-    cnt.columns = ["flag", "SKUs"]
-    render_chart(px.pie(cnt, names="flag", values="SKUs", hole=.55, color="flag", color_discrete_map=COLORS)
-                   .update_layout(height=380, margin=dict(t=30, b=0)), container=a)
-    v = view.sort_values("days_of_cover")
-    fig = px.bar(v, x="sku", y="days_of_cover", color="flag", color_discrete_map=COLORS,
-                     hover_data=["current_stock", "reorder_point", "lead_time_days"])
-    fig.add_hline(y=OVERSTOCK_COVER, line_dash="dash", line_color=AMBER, annotation_text="overstock threshold")
-    fig.update_layout(height=340, showlegend=False,
-                          hoverlabel=dict(bgcolor=PANEL2, bordercolor=BORDER, font=dict(color=TEXT, size=12)))
-    render_chart(fig.update_layout(height=380, margin=dict(t=40, b=0)), container=b)
-
-    top = view.sort_values("current_stock", ascending=False).head(20)
-    fig = go.Figure()
-    fig.add_bar(x=top.sku, y=top.current_stock, name="Current stock", marker_color="#1f3a5f")
-    fig.add_scatter(x=top.sku, y=top.reorder_point, name="Reorder point", mode="markers",
-                    marker=dict(color="#D64545", size=11, symbol="diamond"))
-    fig.update_layout(title="Stock vs reorder point (20 largest positions)", height=380, margin=dict(t=40, b=0))
-    render_chart(fig)
-
-    m1, m2 = st.columns(2)
-    m1.metric("Lost-sales exposure (lead-time shortfall)", f"{view['expected_lost_sales_value'].sum()/1e6:,.2f} M")
-    m2.metric("Cash tied up in excess stock", f"{view['excess_inventory_value'].sum()/1e6:,.2f} M")
-
-# ---------------- Tab 3 ----------------
+    st.subheader('Stockout versus overstock decision grid')
+    st.caption('Stockout risk uses on-hand plus on-order; excess uses physical on-hand. Receipt-timing shortfalls are shown separately. Positive values on both axes mean investigate before acting.')
+    if rv.empty:
+        st.info('Inventory risk unavailable: supply dated inventory snapshots with on-hand, on-order and lead times.')
+    else:
+        fig = px.scatter(rv,x='overstock_axis',y='stockout_axis',size='revenue_at_stake',color='flag',
+                         hover_name='sku',color_discrete_map=COLORS, size_max=50,
+                         labels={'overstock_axis':'Excess / 60-day demand','stockout_axis':'Position shortage / reorder point'})
+        fig.add_vline(x=0,line_dash='dash');fig.add_hline(y=0,line_dash='dash')
+        fig.update_layout(xaxis_range=[-.1,max(.2,rv.overstock_axis.max()*1.1)],yaxis_range=[-.1,1.1])
+        render_chart(fig)
+        st.dataframe(rv[['sku','flag','current_stock','on_order','inventory_position','reorder_point','days_of_cover']],hide_index=True)
+        st.caption('Bubble size is revenue at stake, not expected savings. Receipt dates are unknown; verify arrivals. High shortage/low excess: Reorder now; low shortage/high excess: Markdown / clear; high both: Watch / volatile; low both: Healthy.')
 with t3:
-    st.subheader("Action list")
-    order = {"Critical": 0, "High": 1, "Low": 2, "-": 3}
-    tbl = view.assign(_o=view.priority.map(order)).sort_values(["_o", "days_of_cover"])
-    cols = ["sku", "abc_class", "flag", "priority", "current_stock", "reorder_point", "safety_stock",
-            "days_of_cover", "lead_time_days", "recommended_order_qty", "eoq", "order_value", "action"]
-    st.dataframe(tbl[cols], width="stretch", hide_index=True, height=480)
-    st.download_button("⬇ Download recommendations (CSV)", tbl[cols].to_csv(index=False).encode(),
-                       "foresight_recommendations.csv", "text/csv")
-    st.caption(f"Recomputed live at a {int(sl*100)}% service level. Move the slider in the sidebar to see "
-               "safety stock, reorder points and order quantities change.")
-
-# ---------------- Tab 4 ----------------
+    if rv.empty:
+        st.info('No supported reorder or clearance recommendations. Missing stock is not treated as zero.')
+    else:
+        st.subheader('Recommended actions')
+        st.caption(f"Prioritised from the {date_label(info.get('inventory_as_of'))} stock snapshot. Verify fresh stock before acting.")
+        cols=['sku','priority','flag','recommended_order_qty','clearance_review_units','order_value','excess_inventory_value','lead_time_revenue_exposure','receipt_delay_revenue_exposure','action']
+        st.dataframe(rv[cols].rename(columns={
+            'sku':'SKU', 'priority':'Priority', 'flag':'Action status', 'recommended_order_qty':'Order units',
+            'clearance_review_units':'Clearance review units', 'order_value':'Proposed spend',
+            'excess_inventory_value':'Excess stock value', 'lead_time_revenue_exposure':'Revenue exposure',
+            'receipt_delay_revenue_exposure':'Receipt-delay exposure', 'action':'Recommendation'}),hide_index=True)
+        st.download_button('Download recommendations',rv[cols].to_csv(index=False),'recommendations.csv','text/csv')
+        st.caption(f'Financial amounts: {unit}. Spend, stock at cost and revenue exposure are separate measures; do not sum as savings.')
 with t4:
-    st.subheader("Model comparison (90-day rolling backtest, 30-day horizon)")
-    st.dataframe(metrics.rename(columns={"WAPE_pct": "WAPE %", "Bias_pct": "Bias %"}), hide_index=True,
-                 width="stretch")
-    gain = (info["wape_naive"] - info["wape_lightgbm"]) / info["wape_naive"] * 100
-    st.success(f"LightGBM reduces forecast error by **{gain:.1f}%** versus the naive baseline (WAPE).")
-    st.caption("Each 30-day window is forecast recursively from actual history only, the same way the model is used "
-               "in production. Actual promotion flags are used in the backtest (promos are usually planned in advance).")
-    x, y = st.columns(2)
-    render_chart(px.bar(imp.sort_values("importance"), x="importance", y="feature", orientation="h",
-                          title="Feature importance (gain %)").update_layout(height=420), container=x)
-    sa = inputs.sort_values("wape_pct")
-    render_chart(px.bar(sa, x="sku", y="wape_pct", title="Backtest WAPE % by SKU").update_layout(height=420),
-                   container=y)
-
-# ---------------- Tab 5 ----------------
+    st.subheader('Three rolling-origin folds; retrained every 56 days')
+    st.dataframe(metrics,hide_index=True)
+    st.caption(f"Selected on weekly WAPE: {info['selected_model']}. Both baselines use identical folds and horizon. Zero-demand observations are excluded from secondary MAPE; zero-total WAPE is undefined. Scores do not represent classification accuracy.")
+    if 'wape_pct' in view:
+        render_chart(px.bar(view, x='sku', y='wape_pct', title='Selected SKU daily backtest WAPE', labels={'wape_pct':'WAPE (%)'}))
+    st.caption('Prices are last observed before each origin. Backtests and base forecasts assume no promotions; future actual promotions are not read.')
+    try:
+        imp = pd.read_csv(OUTPUT/'feature_importance.csv')
+        render_chart(px.bar(imp.sort_values('importance'),x='importance',y='feature',orientation='h',title='Final LightGBM feature gain (%)'))
+    except (OSError, ValueError, KeyError):
+        st.caption('Feature importance is unavailable for this run.')
 with t5:
-    tot = sales.groupby("Date")["Units_Sold"].sum().reset_index()
-    render_chart(px.line(tot, x="Date", y="Units_Sold", title="Total daily units sold").update_layout(height=320),
-                    )
-    c1, c2 = st.columns(2)
-    dow = tot.assign(day=tot.Date.dt.day_name()).groupby("day")["Units_Sold"].mean() \
-             .reindex(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]).reset_index()
-    render_chart(px.bar(dow, x="day", y="Units_Sold", title="Average units by weekday"), container=c1)
-    mo = tot.groupby(tot.Date.dt.month)["Units_Sold"].mean().reset_index()
-    render_chart(px.bar(mo, x="Date", y="Units_Sold", title="Average units by month").update_xaxes(title="Month"),
-                    container=c2)
-    lift = sales.groupby("Promotion")["Units_Sold"].mean()
-    st.metric("Promotion lift", f"+{(lift[1]/lift[0]-1)*100:.0f}% units on promo days")
+    try:
+        sales = pd.read_csv(OUTPUT/'analysis_ready.csv',parse_dates=['Date'])
+        sales = sales[sales.SKU.isin(selected)]
+        if sales.empty:
+            st.info('No observed sales for the selected new SKUs.')
+        else:
+            tot = sales.groupby('Date',as_index=False).Units_Sold.sum()
+            render_chart(px.line(tot,x='Date',y='Units_Sold',title='Observed daily demand for filtered SKUs',labels={'Units_Sold':'Units sold'}))
+            movers = sales[sales.Date > sales.Date.max()-pd.Timedelta(days=28)].groupby('SKU',as_index=False).Units_Sold.sum().sort_values('Units_Sold',ascending=False)
+            render_chart(px.bar(movers.head(15),x='SKU',y='Units_Sold',title='Top movers: final 28 observed days',labels={'Units_Sold':'Units sold'}))
+        if not sales.empty:
+            weekday = sales.assign(weekday=sales.Date.dt.day_name()).groupby('weekday',as_index=False).Units_Sold.mean()
+            monthly = sales.assign(month=sales.Date.dt.month).groupby('month',as_index=False).Units_Sold.mean()
+            render_chart(px.bar(weekday,x='weekday',y='Units_Sold',title='Average daily SKU demand by weekday',labels={'Units_Sold':'Mean units / SKU-day'}))
+            render_chart(px.bar(monthly,x='month',y='Units_Sold',title='Average daily SKU demand by month',labels={'Units_Sold':'Mean units / SKU-day'}))
+            promo = sales.groupby('Promotion').Units_Sold.mean()
+            if 0 in promo and 1 in promo and promo[0] > 0:
+                st.metric('Observed promotion-day association', f'{(promo[1]/promo[0]-1)*100:+.1f}%')
+                st.caption('Association only; not a causal campaign effect.')
+        st.caption('Read reports/DATA_QUALITY_EDA_MEMO.md and reports/EXECUTIVE_READOUT.md for quality findings, actions and limitations.')
+    except (OSError, ValueError, KeyError) as exc:
+        st.error(f'Analysis-ready data unavailable: {exc}')

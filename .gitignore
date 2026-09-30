@@ -12,3 +12,5 @@ venv/
 .env.*
 !.env.example
 .streamlit/secrets.toml
+.venv-foresight/
+.pytest_cache/

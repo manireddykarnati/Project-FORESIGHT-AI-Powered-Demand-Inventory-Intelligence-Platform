@@ -1,1 +1,81 @@
-{"test_start": "2025-10-03", "test_end": "2025-12-31", "forecast_start": "2026-01-01", "forecast_end": "2026-01-30", "wape_lightgbm": 22.566, "wape_naive": 32.625}
+{
+  "schema_version": 2,
+  "as_of": "2025-12-31",
+  "forecast_start": "2026-01-01",
+  "forecast_end": "2026-02-25",
+  "horizon_days": 56,
+  "test_start": "2025-07-17",
+  "test_end": "2025-12-31",
+  "selected_model": "LightGBM",
+  "currency": null,
+  "missing_extracts": [],
+  "inventory_skus": 50,
+  "inventory_blockers": [],
+  "inventory_as_of": "2025-12-01",
+  "inventory_scope": "Historical snapshot review; not current stock",
+  "inventory_unmatched_skus": 150,
+  "risk_proxy_metrics": [
+    {
+      "proxy": "lead_time_sales_exceed_position",
+      "n": 150,
+      "true_positive": 13,
+      "false_positive": 3,
+      "false_negative": 0,
+      "true_negative": 134,
+      "proxy_precision": 0.8125,
+      "proxy_recall": 1.0
+    },
+    {
+      "proxy": "on_hand_exceeds_next_60d_sales",
+      "n": 100,
+      "true_positive": 14,
+      "false_positive": 0,
+      "false_negative": 0,
+      "true_negative": 86,
+      "proxy_precision": 1.0,
+      "proxy_recall": 1.0
+    }
+  ],
+  "interval": "Approximate nominal 95% central normal error band; not calibrated",
+  "source_sha256": {
+    "sku_master.csv": "6a8653e898a56cc596a4a70739ddcdd9ae80a2f997d24bf93ed110f1950582a9",
+    "inventory_snapshots.csv": "167582d50ac68b4751f481efef136e4199528f7de3fe63b80d29d4768fd5e9bd",
+    "sales_daily.csv": "f33e31ad52880fc4c0c630c4c336f994235736cd23f417ca049e434d2878a647",
+    "calendar.csv": "9d66c227a95b5e9a37d30191e37b83aa5acb1c43398525f4855c7f72cbda4b62"
+  },
+  "model_parameters": "LightGBM 600 trees, learning_rate=.03, seed=42, n_jobs=1",
+  "validation_folds": [
+    {
+      "origin": "2025-07-17",
+      "train_max_date": "2025-07-16",
+      "train_rows": 28150,
+      "model_fitted": true,
+      "price_policy": "last price before origin",
+      "promotion_policy": "no promotions unless explicit scenario"
+    },
+    {
+      "origin": "2025-09-11",
+      "train_max_date": "2025-09-10",
+      "train_rows": 30950,
+      "model_fitted": true,
+      "price_policy": "last price before origin",
+      "promotion_policy": "no promotions unless explicit scenario"
+    },
+    {
+      "origin": "2025-11-06",
+      "train_max_date": "2025-11-05",
+      "train_rows": 33750,
+      "model_fitted": true,
+      "price_policy": "last price before origin",
+      "promotion_policy": "no promotions unless explicit scenario"
+    }
+  ],
+  "final_fit": {
+    "origin": "2026-01-01",
+    "train_max_date": "2025-12-31",
+    "train_rows": 36550,
+    "model_fitted": true,
+    "price_policy": "last price before origin",
+    "promotion_policy": "no promotions unless explicit scenario"
+  }
+}

@@ -1,0 +1,3 @@
+proxy,n,true_positive,false_positive,false_negative,true_negative,proxy_precision,proxy_recall
+lead_time_sales_exceed_position,150,13,3,0,134,0.8125,1.0
+on_hand_exceeds_next_60d_sales,100,14,0,0,86,1.0,1.0
