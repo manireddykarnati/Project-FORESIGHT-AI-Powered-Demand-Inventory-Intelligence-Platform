@@ -1,6 +1,6 @@
 # Project FORESIGHT
 
-FORESIGHT produces weekly SKU demand forecasts, compares them with simple baselines, and provides local inventory decisions when supplied stock data supports them. All work is local; deployment and submission administration are outside this project update.
+FORESIGHT produces weekly SKU demand forecasts, compares them with simple baselines, and provides inventory decisions when supplied stock data supports them. The pipeline runs locally; the Streamlit dashboard can also serve its saved outputs on Render.
 
 ## Current source coverage
 
@@ -31,6 +31,10 @@ streamlit run app/streamlit_app.py
 On Windows, activate with `.venv-foresight\Scripts\activate`. The scripts resolve project paths independently of the shell working directory, except tests should be run from the project root. Notebook execution requires permission for local Jupyter kernel sockets. Dependencies are installed in the environment, never by notebook shell commands.
 
 The default command requires all four files and succeeds on the supplied extracts. `--allow-partial` remains available for explicit incomplete-data diagnostics; malformed present files still fail. Do not pass `--currency INR` until denomination is established. Alternative directories are supported through `--data-dir`, `--output-dir`, and `--report-dir`. Synthetic tests write only to temporary directories.
+
+## Host the dashboard on Render
+
+Use the included `render.yaml` Blueprint or follow the [Render deployment guide](docs/RENDER_DEPLOYMENT.md). It selects a **Free** Python web service and installs the smaller `requirements-web.txt` runtime. The service reads committed outputs without retraining at startup. Source dates and historical inventory limitations remain visible in the hosted dashboard.
 
 ## Method and verified results
 

@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: foresight
+    runtime: python
+    plan: free
+    region: singapore
+    branch: main
+    buildCommand: python -m pip install -r requirements-web.txt
+    startCommand: python -m streamlit run app/streamlit_app.py --server.address=0.0.0.0 --server.port=$PORT --server.headless=true --server.fileWatcherType=none --server.runOnSave=false
+    healthCheckPath: /_stcore/health

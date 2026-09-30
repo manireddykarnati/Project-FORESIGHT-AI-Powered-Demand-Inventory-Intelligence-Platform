@@ -1,0 +1,5 @@
+# Dashboard runtime only. Train and regenerate outputs locally with requirements.txt.
+streamlit==1.55.0
+pandas==2.3.3
+numpy==2.4.3
+plotly==6.6.0
