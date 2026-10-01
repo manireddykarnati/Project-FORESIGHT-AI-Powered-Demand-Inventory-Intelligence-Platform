@@ -34,6 +34,8 @@ The default command requires all four files and succeeds on the supplied extract
 
 ## Host the dashboard on Render
 
+Live dashboard: [FORESIGHT planning review](https://foresight-4rwv.onrender.com/). The Free service may take about a minute to wake after inactivity.
+
 Use the included `render.yaml` Blueprint or follow the [Render deployment guide](docs/RENDER_DEPLOYMENT.md). It selects a **Free** Python web service and installs the smaller `requirements-web.txt` runtime. The service reads committed outputs without retraining at startup. Source dates and historical inventory limitations remain visible in the hosted dashboard.
 
 ## Method and verified results

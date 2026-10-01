@@ -41,4 +41,12 @@ Render Free services can sleep after inactivity, so the first visit may take lon
 - **Cannot load project outputs:** check that the current commit includes the complete `outputs/` directory. Repair and verify artifacts locally, then redeploy.
 - **Blank or disconnected page:** wait for a sleeping instance to start, reload, then inspect service logs for application errors or memory limits.
 
-The checked-in configuration is a deployment recipe, not evidence that a service is live. Record and verify the assigned URL after the actual deployment succeeds.
+## Deployment record
+
+- Public dashboard: https://foresight-4rwv.onrender.com/
+- Service: `foresight`, Free instance in Singapore, connected through its public Git repository URL.
+- Initial deployment: commit `5eb05e1`; Render reported **Deploy succeeded | Live** on 30 September 2026. The clean Linux build installed `requirements-web.txt` using Python 3.12.14.
+- Browser verification on 1 October 2026: the app woke from inactivity and displayed all 50 products, 5 reorder reviews and 5 clearance reviews. Furniture filtering displayed 10 products; selecting SKU001 displayed one. Unavailable status displayed the empty-state message. Unknown SKU input displayed a validation error, and SKU001/SKU002 returned forecast and risk tables. The Actions tab displayed recommendations and its download control.
+- The browser check exposed stale visible dropdown selections after Reset filters. The callback now assigns explicit default values to keep the widgets and server results consistent.
+
+The first visit after inactivity can show Render's application-loading screen. Wait for startup and reload if the interstitial remains. For updates, push to `main`, then use the service's manual deploy control; this service was created from a public Git URL without a Git-provider connection.

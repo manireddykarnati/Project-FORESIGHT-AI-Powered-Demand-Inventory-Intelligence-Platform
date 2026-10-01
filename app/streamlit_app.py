@@ -75,8 +75,12 @@ COLORS = {'Reorder now': RED, 'Markdown / clear': AMBER, 'Watch / volatile': '#7
 
 
 def reset_filters():
-    for key in ['category_filter', 'product_filter', 'class_filter', 'risk_filter', 'service_level']:
-        st.session_state.pop(key, None)
+    # Explicit values also reset the browser widgets; deleting keys can leave
+    # stale selections visible even when the server uses the defaults.
+    st.session_state.update(
+        category_filter='All categories', product_filter='All products',
+        class_filter='All classes', risk_filter='All statuses', service_level=.95,
+    )
 
 
 def date_label(value):
